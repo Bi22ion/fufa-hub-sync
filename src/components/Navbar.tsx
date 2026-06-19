@@ -63,52 +63,32 @@ export function Navbar() {
               <Download className="mr-1 h-4 w-4" /> Get App
             </Button>
           )}
-          {session ? (
-            <Link to="/account">
-              <Button variant="outline" size="sm" className="border-accent/40 text-accent hover:bg-accent/10 hover:text-accent">
-                <UserIcon className="mr-1 h-4 w-4" /> Account
-              </Button>
-            </Link>
-          ) : (
-            <Link to="/auth">
-              <Button variant="outline" size="sm" className="border-accent/40 text-accent hover:bg-accent/10 hover:text-accent">
-                <LogIn className="mr-1 h-4 w-4" /> Sign in
-              </Button>
-            </Link>
-          )}
-         {/* Radio Toggle Button */}
+
+          {/* Radio / FM Toggle Button — rectangular, always visible (incl. small phones) */}
           <button
             onClick={() => radio.toggle()}
-            className={`group relative flex items-center justify-center rounded-full transition-all duration-300 ease-in-out hover:scale-110 active:scale-95`}
+            className="group relative flex shrink-0 items-center justify-center transition-transform duration-200 hover:scale-105 active:scale-95"
             aria-label="Toggle Radio"
           >
-            {/* The Outer Animated Ring - Draws attention when Radio is off */}
             {!radioOn && (
-              <div className="absolute inset-0 rounded-full border-2 border-accent animate-ping opacity-75"></div>
+              <span className="absolute inset-0 rounded-lg border-2 border-accent animate-ping opacity-75" />
             )}
-            
-            <div className={`relative h-11 w-11 overflow-hidden rounded-full border-2 transition-all duration-500 hover:rotate-[360deg] ${
-              radioOn 
-                ? "border-accent shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse" 
-                : "border-muted-foreground/30 animate-bounce"
+            <span className={`relative flex h-9 w-16 items-center justify-center overflow-hidden rounded-lg border-2 transition-all duration-300 ${
+              radioOn
+                ? "border-accent shadow-[0_0_12px_rgba(239,68,68,0.7)] animate-pulse"
+                : "border-muted-foreground/40"
             }`}>
-              <img 
-                src="/fufa-fm.png" 
-                alt="FUFA FM" 
-                className="h-full w-full object-cover" 
-              />
-            </div>
-            
-            {/* Active Status Indicator */}
-            <span className={`absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${
+              <img src="/fufa-fm.png" alt="FUFA FM" className="h-full w-full object-cover" />
+            </span>
+            <span className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-white ${
               radioOn ? "bg-green-500" : "bg-gray-400"
             }`} />
           </button>
 
-          {/* Watch Live Button */}
+          {/* Watch Live Button — compact to reduce nav congestion */}
           <Link to="/live">
-            <Button size="sm" className="bg-accent-red font-bold text-white hover:bg-accent-red/90">
-              <Radio className="mr-1 h-4 w-4 animate-pulse" /> WATCH LIVE
+            <Button size="sm" className="h-8 shrink-0 bg-accent-red px-2.5 text-xs font-bold text-white hover:bg-accent-red/90">
+              <Radio className="mr-1 h-3.5 w-3.5 animate-pulse" /><span className="hidden sm:inline">WATCH </span>LIVE
             </Button>
           </Link>
 
