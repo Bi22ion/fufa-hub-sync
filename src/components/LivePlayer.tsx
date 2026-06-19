@@ -13,7 +13,7 @@ function extractYouTubeId(url: string): string | null {
   const m =
     url.match(/(?:youtube\.com\/(?:embed\/|watch\?v=|v\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/) ||
     url.match(/^([A-Za-z0-9_-]{11})$/);
-  return m ? m : null;
+  return m ? m[1] : null;
 }
 
 function isYouTube(url: string) { return !!extractYouTubeId(url); }
@@ -100,10 +100,10 @@ export function LivePlayer({ showSelector = true, showOpenFull = false }: { show
 
   const [activeId, setActiveId] = useState<string | null>(null);
   useEffect(() => {
-    if (chain?.kind === "program") setActiveId(chain.id);
-    else if (!chain.find(s => s.id === activeId)) setActiveId(chain?.id ?? null);
-  }, [chain?.id, chain.length]);
-  const active = chain.find(s => s.id === activeId) ?? chain;
+    if (chain[0]?.kind === "program") setActiveId(chain[0].id);
+    else if (!chain.find(s => s.id === activeId)) setActiveId(chain[0]?.id ?? null);
+  }, [chain[0]?.id, chain.length]);
+  const active = chain.find(s => s.id === activeId) ?? chain[0];
 
   const [viewers, setViewers] = useState(0);
   useEffect(() => {
@@ -236,7 +236,7 @@ export function LivePlayer({ showSelector = true, showOpenFull = false }: { show
       {showSelector && chain.length > 1 && (
         <div className="border-t border-border bg-surface/60 p-3">
           <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Browse Channels {chain?.kind === "program" && <span className="ml-1 text-[10px] text-accent/80">(scheduled programme is locked to current air time)</span>}
+            Browse Channels {chain[0]?.kind === "program" && <span className="ml-1 text-[10px] text-accent/80">(scheduled programme is locked to current air time)</span>}
           </div>
           <div className="flex flex-wrap gap-2">
             {chain.map((s) => (

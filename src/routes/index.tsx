@@ -41,7 +41,7 @@ function HomePage() {
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <div className="group relative">
-                <LivePlayer showSelector={false} showOpenFull isMuted={radioOn} />
+                <LivePlayer showSelector={false} showOpenFull />
                 <Link
                   to="/live"
                   aria-label="Open full live page"
