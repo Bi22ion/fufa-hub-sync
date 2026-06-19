@@ -341,7 +341,6 @@ function ProgramsManager() {
   const TYPES = ["Live Match", "Highlights", "News", "Press Conference", "Replay"];
   
   const [editingId, setEditingId] = useState<string | null>(null);
-
   const [d, setD] = useState<any>({ 
     title: "", type: "Live Match", start_time: "", end_time: "", thumbnail: "", 
     competitionsSlug: "", stream_id: "", video_url: "", description: "" 
@@ -360,7 +359,7 @@ function ProgramsManager() {
       start_time: new Date(p.startTime).toISOString().slice(0, 16),
       end_time: new Date(p.endTime).toISOString().slice(0, 16),
       video_url: p.videoUrl || "",
-      competitionsSlug: p.competitionsSlug || "" 
+      competitionsSlug: p.competitionSlug || p.competitionsSlug || "" 
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -378,30 +377,29 @@ function ProgramsManager() {
         startTime: new Date(d.start_time).toISOString(),
         endTime: new Date(d.end_time).toISOString(),
         thumbnail: d.thumbnail,
+        // Match the database column name exactly
         competitionsSlug: d.competitionsSlug || null,
         streamId: d.stream_id || null,
         videoUrl: d.video_url || null,
         description: d.description || null,
       };
 
-      if (editingId) {
-        payload.id = editingId;
-      }
+      if (editingId) payload.id = editingId;
 
       await upsert.mutateAsync(payload);
-      toast.success(editingId ? "Updated successfully" : "Scheduled");
+      toast.success("Programme saved successfully");
       reset();
     } catch (e: any) { 
-      console.error("DEBUG ERROR:", e);
-      // Fallback check to prevent the 'kd is not a function' crash
-      if (typeof toast !== 'undefined' && typeof toast.error === 'function') {
-        toast.error("Operation failed. See console.");
-      }
+      // FINAL FIX: We log the error. We do NOT call toast here. 
+      // If the database fails, you will see the exact reason in your Browser Console (F12).
+      console.error("DATABASE ERROR:", e);
+      window.alert("Database Error: Check the browser console (F12) for the specific error message.");
     }
   };
   
   return (
     <Section title="Programme Schedule" desc="Every viewer is tuned to whatever programme is on the air.">
+      {/* ... (The UI fields remain exactly as you have them) ... */}
       <div className="mb-6 grid gap-3 rounded-xl border border-dashed border-border bg-background/40 p-4 sm:grid-cols-2">
         <Field label="Title"><Input value={d.title} onChange={e => setD({ ...d, title: e.target.value })} /></Field>
         <Field label="Type">
