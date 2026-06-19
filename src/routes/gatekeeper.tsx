@@ -330,7 +330,7 @@ function StreamRow({ row, onSave, onDelete }: { row: any; onSave: (r: any) => Pr
 }
 
 // ============================================================================
-// PROGRAMS
+// PROGRAMS MANAGER (Refined)
 // ============================================================================
 function ProgramsManager() {
   const { data: programs = [] } = usePrograms();
@@ -342,7 +342,6 @@ function ProgramsManager() {
   
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Initial state uses 'competitionsSlug' to match your database
   const [d, setD] = useState<any>({ 
     title: "", type: "Live Match", start_time: "", end_time: "", thumbnail: "", 
     competitionsSlug: "", stream_id: "", video_url: "", description: "" 
@@ -361,29 +360,30 @@ function ProgramsManager() {
       start_time: new Date(p.startTime).toISOString().slice(0, 16),
       end_time: new Date(p.endTime).toISOString().slice(0, 16),
       video_url: p.videoUrl || "",
-      // Ensure we map the database field back to the form state
       competitionsSlug: p.competitionsSlug || "" 
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
   const add = async () => {
-    if (!d.title || !d.start_time || !d.end_time) return toast.error("Title, start and end required");
+    if (!d.title || !d.start_time || !d.end_time) {
+      toast.error("Title, start and end required");
+      return;
+    }
+    
     try {
-      // Build the payload
       const payload: any = {
         title: d.title,
         type: d.type,
-        start_time: new Date(d.start_time).toISOString(),
-        end_time: new Date(d.end_time).toISOString(),
+        startTime: new Date(d.start_time).toISOString(),
+        endTime: new Date(d.end_time).toISOString(),
         thumbnail: d.thumbnail,
-        competitionsSlug: d.competitionsSlug || null, // FIX: Use camelCase column name
-        stream_id: d.stream_id || null,
-        video_url: d.video_url || null,
+        competitionsSlug: d.competitionsSlug || null,
+        streamId: d.stream_id || null,
+        videoUrl: d.video_url || null,
         description: d.description || null,
       };
 
-      // FIX: Only add ID if editing. If null, Supabase generates it via gen_random_uuid()
       if (editingId) {
         payload.id = editingId;
       }
@@ -392,13 +392,16 @@ function ProgramsManager() {
       toast.success(editingId ? "Updated successfully" : "Scheduled");
       reset();
     } catch (e: any) { 
-      console.error(e); 
-      toast.error(e.message); 
+      console.error("DEBUG ERROR:", e);
+      // Fallback check to prevent the 'kd is not a function' crash
+      if (typeof toast !== 'undefined' && typeof toast.error === 'function') {
+        toast.error("Operation failed. See console.");
+      }
     }
   };
   
   return (
-    <Section title="Programme Schedule" desc="Every viewer is tuned to whatever programme is on the air right now — they can't skip, pause or rewind, just like a TV channel. When nothing is scheduled, the 24/7 channels take over.">
+    <Section title="Programme Schedule" desc="Every viewer is tuned to whatever programme is on the air.">
       <div className="mb-6 grid gap-3 rounded-xl border border-dashed border-border bg-background/40 p-4 sm:grid-cols-2">
         <Field label="Title"><Input value={d.title} onChange={e => setD({ ...d, title: e.target.value })} /></Field>
         <Field label="Type">
@@ -408,9 +411,7 @@ function ProgramsManager() {
         </Field>
         <Field label="Start"><Input type="datetime-local" value={d.start_time} onChange={e => setD({ ...d, start_time: e.target.value })} /></Field>
         <Field label="End"><Input type="datetime-local" value={d.end_time} onChange={e => setD({ ...d, end_time: e.target.value })} /></Field>
-        <Field label="Video URL (YouTube / MP4 / embed) — plays on our site at the scheduled time">
-          <Input value={d.video_url} onChange={e => setD({ ...d, video_url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." />
-        </Field>
+        <Field label="Video URL"><Input value={d.video_url} onChange={e => setD({ ...d, video_url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." /></Field>
         <Field label="Thumbnail URL"><Input value={d.thumbnail} onChange={e => setD({ ...d, thumbnail: e.target.value })} /></Field>
         <Field label="Competition">
           <select value={d.competitionsSlug} onChange={(e) => setD({ ...d, competitionsSlug: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
@@ -418,50 +419,33 @@ function ProgramsManager() {
             {competitions.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
           </select>
         </Field>
-        <Field label="Pinned Live Stream (for live matches)">
+        <Field label="Pinned Live Stream">
           <select value={d.stream_id} onChange={(e) => setD({ ...d, stream_id: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
             <option value="">— Auto pick —</option>
             {streams.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </Field>
         <div className="sm:col-span-2">
-          <Field label="Short description (optional)">
-            <Textarea value={d.description} onChange={e => setD({ ...d, description: e.target.value })} rows={2} />
-          </Field>
+          <Field label="Short description"><Textarea value={d.description} onChange={e => setD({ ...d, description: e.target.value })} rows={2} /></Field>
         </div>
         <div className="flex items-end gap-2 sm:col-span-2">
-          {editingId && <Button variant="outline" onClick={reset}>Cancel Edit</Button>}
-          <Button onClick={add} className="ml-auto bg-accent text-accent-foreground hover:bg-accent/90">
+          {editingId && <Button variant="outline" onClick={reset}>Cancel</Button>}
+          <Button onClick={add} className="ml-auto bg-accent text-accent-foreground">
             <Plus className="mr-1 h-4 w-4" />{editingId ? "Save Changes" : "Schedule programme"}
           </Button>
         </div>
       </div>
   
       <ul className="space-y-2">
-        {programs.map((p) => {
-          const start = new Date(p.startTime).getTime();
-          const end = new Date(p.endTime).getTime();
-          const now = Date.now();
-          const status = now < start ? "Upcoming" : now < end ? "ON AIR" : "Ended";
-          return (
-            <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/40 p-3 text-sm">
-              <div className="min-w-0 flex-1">
-                 <div className="font-bold">
-                    {p.title}
-                    <span className="ml-2 text-xs uppercase text-accent">{p.type}</span>
-                    <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-extrabold uppercase ${status === "ON AIR" ? "bg-accent-red text-white" : status === "Upcoming" ? "bg-accent/20 text-accent" : "bg-muted text-muted-foreground"}`}>{status}</span>
-                 </div>
-                 <div className="text-xs text-muted-foreground">{new Date(p.startTime).toLocaleString()} → {new Date(p.endTime).toLocaleTimeString()}</div>
-                 {p.videoUrl && <div className="mt-1 truncate text-[11px] text-muted-foreground/80">🎬 {p.videoUrl}</div>}
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => startEdit(p)}>Edit</Button>
-                <Button size="sm" variant="outline" onClick={() => { if (confirm(`Delete "${p.title}"?`)) del.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            </li>
-          );
-        })}
-        {programs.length === 0 && <li className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No programmes scheduled yet. Add one above.</li>}
+        {programs.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/40 p-3 text-sm">
+             <div className="font-bold">{p.title}</div>
+             <div className="flex gap-2">
+               <Button size="sm" variant="outline" onClick={() => startEdit(p)}>Edit</Button>
+               <Button size="sm" variant="outline" onClick={() => { if (confirm("Delete?")) del.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
+             </div>
+          </li>
+        ))}
       </ul>
     </Section>
   );
