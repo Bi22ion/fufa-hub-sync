@@ -11,10 +11,7 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign In — FUFA TV" },
-      {
-        name: "description",
-        content: "Sign in or create a FUFA TV account to follow your favourite clubs, set reminders and chat live.",
-      },
+      { name: "description", content: "Sign in or create a FUFA TV account to follow your favourite clubs, set reminders and chat live." },
     ],
   }),
   validateSearch: (s: Record<string, unknown>) => ({ redirect: typeof s.redirect === "string" ? s.redirect : undefined }),
@@ -45,10 +42,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: window.location.origin + "/account",
-            data: { full_name: name }
-          },
+          options: { emailRedirectTo: window.location.origin + "/account", data: { full_name: name } },
         });
         if (error) throw error;
         console.log('Operation successful');
@@ -68,9 +62,7 @@ function AuthPage() {
   const handleGoogleClick = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.origin + dest,
-      },
+      options: { redirectTo: window.location.origin + dest },
     });
     if (error) {
       console.error('Database Error:', error);
@@ -87,7 +79,6 @@ function AuthPage() {
         <p className="mt-2 text-center text-sm text-muted-foreground">
           {mode === "signin" ? "Sign in to your subscriber account." : "Create a free account to follow clubs & set reminders."}
         </p>
-
         <div className="mt-6 rounded-2xl border border-border bg-surface p-6">
           <Button type="button" onClick={handleGoogleClick} disabled={busy} variant="outline" className="w-full border-border">
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -98,13 +89,9 @@ function AuthPage() {
             </svg>
             Continue with Google
           </Button>
-
           <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            OR
-            <div className="h-px flex-1 bg-border" />
+            <div className="h-px flex-1 bg-border" /> OR <div className="h-px flex-1 bg-border" />
           </div>
-
           <form onSubmit={submit} className="space-y-4">
             {mode === "signup" && (
               <div className="relative">
@@ -112,28 +99,23 @@ function AuthPage() {
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="pl-9" required />
               </div>
             )}
-
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="pl-9" required />
             </div>
-
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" minLength={6} className="pl-9" required />
             </div>
-
             <Button type="submit" disabled={busy} className="w-full bg-accent font-bold text-accent-foreground hover:bg-accent/90">
               {busy ? "Please wait…" : mode === "signin" ? "Sign In" : "Create Account"}
             </Button>
           </form>
-
           <button type="button" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
                   className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-accent">
             {mode === "signin" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>
         </div>
-
         <p className="mt-4 text-center text-xs text-muted-foreground">
           By continuing you agree to our <Link to="/terms" className="underline">Terms</Link> & <Link to="/privacy" className="underline">Privacy</Link>.
         </p>
