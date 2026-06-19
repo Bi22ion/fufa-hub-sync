@@ -29,14 +29,13 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
-        <Link to="/" className="flex items-center gap-2">
-          {/* Fixed to bypass the broken Lovable proxy path and load directly from the public root folder */}
-          <img 
-            src="/fufa-logo-v2.png" 
-            alt="FUFA Logo" 
-            className="h-22 w-22 object-contain" 
+        <Link to="/" className="flex shrink-0 items-center">
+          {/* Logo loads directly from the public root folder. Enlarged + responsive so it is clearly visible on every device. */}
+          <img
+            src="/fufa-logo-v2.png"
+            alt="FUFA Logo"
+            className="h-14 w-auto object-contain sm:h-16 lg:h-20"
           />
-         
         </Link>
 
         <nav className="ml-6 hidden items-center gap-1 lg:flex">
