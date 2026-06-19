@@ -28,7 +28,6 @@ function SchedulePage() {
             <button key={f} onClick={() => setFilter(f)} className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${filter === f ? "border-accent bg-accent text-accent-foreground" : "border-border text-foreground/80 hover:border-accent/60"}`}>{f}</button>
           ))}
         </div>
-
         <ul className="mt-6 space-y-3">
           {items.length === 0 && <li className="rounded-xl border border-border bg-surface p-6 text-center text-muted-foreground">No programmes scheduled.</li>}
           {items.map((p) => {
