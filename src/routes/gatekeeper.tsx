@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Shield, LogOut, Plus, Trash2, Save, Radio, Calendar, Trophy, Newspaper, Video, Megaphone, Tv, Settings, Users, ExternalLink, UserCheck, UserX, Rss } from "lucide-react";
+import { toast } from "sonner";
 import { useBlogPosts, useBlogUpsert, useBlogDelete } from "@/lib/blog";
 
 export const Route = createFileRoute("/gatekeeper")({
@@ -34,11 +35,12 @@ function GatekeeperPage() {
   const isSuperAdmin = !!user?.email && user.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
   const bootstrap = useServerFn(bootstrapSuperAdmin);
 
+  // Auto-bootstrap super admin (idempotent) so the absolute owner always has admin rights.
   useEffect(() => {
     if (isSuperAdmin && checked && !isAdmin) {
       bootstrap({} as any)
-        .then(() => { console.log('Operation successful'); setTimeout(() => location.reload(), 600); })
-        .catch((e: any) => { console.error('Database Error:', e); window.alert('Database Error: ' + (e.message || 'An unexpected error occurred')); });
+        .then(() => { toast.success("Super admin verified. Reloading…"); setTimeout(() => location.reload(), 600); })
+        .catch((e: any) => toast.error(e?.message ?? "Could not bootstrap super admin"));
     }
   }, [isSuperAdmin, checked, isAdmin]);
 
@@ -144,8 +146,8 @@ function UsersManager({ currentUserId }: { currentUserId: string }) {
 
   const act = async (id: string, fn: () => Promise<any>, okMsg: string) => {
     setBusy(id);
-    try { await fn(); console.log('Operation successful'); await refresh(); }
-    catch (e: any) { console.error('Database Error:', e); window.alert('Database Error: ' + (e.message || 'An unexpected error occurred')); }
+    try { await fn(); toast.success(okMsg); await refresh(); }
+    catch (e: any) { toast.error(e?.message ?? "Action failed"); }
     finally { setBusy(null); }
   };
 
@@ -205,9 +207,12 @@ function UsersManager({ currentUserId }: { currentUserId: string }) {
   );
 }
 
+
+
 function NotAdmin({ onSignOut }: { onSignOut: () => void }) {
   const [busy, setBusy] = useState(false);
   const [adminExists, setAdminExists] = useState<boolean | null>(null);
+  // Check on mount
   useState(() => {
     supabase.rpc("any_admin_exists").then(({ data }) => setAdminExists(!!data));
   });
@@ -215,10 +220,10 @@ function NotAdmin({ onSignOut }: { onSignOut: () => void }) {
     setBusy(true);
     const { data, error } = await supabase.rpc("claim_first_admin");
     setBusy(false);
-    if (error) { window.alert('Database Error: ' + (error.message || 'An unexpected error occurred')); return; }
-    if (data === "claimed") { console.log('Operation successful'); setTimeout(() => location.reload(), 800); }
-    else if (data === "admin_exists") { window.alert('Database Error: ' + 'An admin already exists.'); setAdminExists(true); }
-    else window.alert('Database Error: ' + 'Could not claim admin');
+    if (error) return toast.error(error.message);
+    if (data === "claimed") { toast.success("You are now the admin. Reloading…"); setTimeout(() => location.reload(), 800); }
+    else if (data === "admin_exists") { toast.error("An admin already exists."); setAdminExists(true); }
+    else toast.error("Could not claim admin");
   };
   return (
     <Layout showTicker={false}>
@@ -274,12 +279,12 @@ function StreamsManager() {
   const [draft, setDraft] = useState<any>({ label: "", url: "", priority: 10, is_active: true, is_auto: false, is_fallback: false, source_type: "youtube_live", category: "" });
 
   const save = async (row: any) => {
-    try { await upsert.mutateAsync(row); console.log('Operation successful'); }
-    catch (e: any) { console.error('Database Error:', e); window.alert('Database Error: ' + (e.message || 'An unexpected error occurred')); }
+    try { await upsert.mutateAsync(row); toast.success("Saved"); }
+    catch (e: any) { toast.error(e.message); }
   };
 
   return (
-    <Section title="Live Streams" desc="Manage all live sources. 'Auto' streams keep running when nothing is scheduled. 'Fallback' plays only when everything else is offline.">
+    <Section title="Live Streams" desc="Manage all live sources. ‘Auto’ streams keep running when nothing is scheduled. ‘Fallback’ plays only when everything else is offline.">
       <div className="mb-6 grid gap-3 rounded-xl border border-dashed border-border bg-background/40 p-4 sm:grid-cols-2">
         <Field label="Label"><Input value={draft.label} onChange={e => setDraft({ ...draft, label: e.target.value })} placeholder="e.g. ESPN Sports" /></Field>
         <Field label="Embed URL"><Input value={draft.url} onChange={e => setDraft({ ...draft, url: e.target.value })} placeholder="https://www.youtube.com/embed/..." /></Field>
@@ -289,7 +294,7 @@ function StreamsManager() {
           <label className="flex items-center gap-2 text-sm"><Switch checked={draft.is_active} onCheckedChange={(v) => setDraft({ ...draft, is_active: v })} /> Active</label>
           <label className="flex items-center gap-2 text-sm"><Switch checked={draft.is_auto} onCheckedChange={(v) => setDraft({ ...draft, is_auto: v })} /> Always-on (24/7)</label>
           <label className="flex items-center gap-2 text-sm"><Switch checked={draft.is_fallback} onCheckedChange={(v) => setDraft({ ...draft, is_fallback: v })} /> Fallback</label>
-          <Button onClick={async () => { if (!draft.label || !draft.url) { window.alert('Database Error: ' + 'Label and URL required'); return; } await save(draft); setDraft({ label: "", url: "", priority: 10, is_active: true, is_auto: false, is_fallback: false, source_type: "youtube_live", category: "" }); }} className="ml-auto bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Add stream</Button>
+          <Button onClick={async () => { if (!draft.label || !draft.url) return toast.error("Label and URL required"); await save(draft); setDraft({ label: "", url: "", priority: 10, is_active: true, is_auto: false, is_fallback: false, source_type: "youtube_live", category: "" }); }} className="ml-auto bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Add stream</Button>
         </div>
       </div>
 
@@ -325,7 +330,7 @@ function StreamRow({ row, onSave, onDelete }: { row: any; onSave: (r: any) => Pr
 }
 
 // ============================================================================
-// PROGRAMS MANAGER (Refined)
+// PROGRAMS
 // ============================================================================
 function ProgramsManager() {
   const { data: programs = [] } = usePrograms();
@@ -335,61 +340,53 @@ function ProgramsManager() {
   const del = useDelete("programs", ["programs"]);
   const TYPES = ["Live Match", "Highlights", "News", "Press Conference", "Replay"];
   
+  // Added editingId to track which program is being edited
   const [editingId, setEditingId] = useState<string | null>(null);
+
   const [d, setD] = useState<any>({ 
     title: "", type: "Live Match", start_time: "", end_time: "", thumbnail: "", 
-    competitionsSlug: "", stream_id: "", video_url: "", description: "" 
+    competition_slug: "", stream_id: "", video_url: "", description: "" 
   });
   
   const reset = () => {
     setEditingId(null);
     setD({ title: "", type: "Live Match", start_time: "", end_time: "", thumbnail: "", 
-           competitionsSlug: "", stream_id: "", video_url: "", description: "" });
+           competition_slug: "", stream_id: "", video_url: "", description: "" });
   };
 
+  // Helper to load program data into the form
   const startEdit = (p: any) => {
     setEditingId(p.id);
     setD({
       ...p,
+      // Convert stored ISO dates to local format for the inputs
       start_time: new Date(p.startTime).toISOString().slice(0, 16),
       end_time: new Date(p.endTime).toISOString().slice(0, 16),
       video_url: p.videoUrl || "",
-      competitionsSlug: p.competitionsSlug || "" 
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
   const add = async () => {
-    if (!d.title || !d.start_time || !d.end_time) {
-      window.alert('Database Error: ' + 'Title, start and end required');
-      return;
-    }
+    if (!d.title || !d.start_time || !d.end_time) return toast.error("Title, start and end required");
     try {
-      const payload: any = {
-        title: d.title,
-        type: d.type,
-        startTime: new Date(d.start_time).toISOString(),
-        endTime: new Date(d.end_time).toISOString(),
-        thumbnail: d.thumbnail,
-        competitionsSlug: d.competitionsSlug || null,
-        streamId: d.stream_id || null,
-        videoUrl: d.video_url || null,
+      await upsert.mutateAsync({
+        ...d,
+        id: editingId, // If editingId exists, this updates the existing record
+        start_time: new Date(d.start_time).toISOString(),
+        end_time: new Date(d.end_time).toISOString(),
+        competition_slug: d.competition_slug || null,
+        stream_id: d.stream_id || null,
+        video_url: d.video_url || null,
         description: d.description || null,
-      };
-      if (editingId) {
-        payload.id = editingId;
-      }
-      await upsert.mutateAsync(payload);
-      console.log('Operation successful');
+      });
+      toast.success(editingId ? "Updated successfully" : "Scheduled");
       reset();
-    } catch (e: any) { 
-      console.error("DEBUG ERROR:", e);
-      window.alert('Database Error: ' + 'Operation failed. See console.');
-    }
+    } catch (e: any) { toast.error(e.message); }
   };
   
   return (
-    <Section title="Programme Schedule" desc="Every viewer is tuned to whatever programme is on the air.">
+    <Section title="Programme Schedule" desc="Every viewer is tuned to whatever programme is on the air right now — they can't skip, pause or rewind, just like a TV channel. When nothing is scheduled, the 24/7 channels take over.">
       <div className="mb-6 grid gap-3 rounded-xl border border-dashed border-border bg-background/40 p-4 sm:grid-cols-2">
         <Field label="Title"><Input value={d.title} onChange={e => setD({ ...d, title: e.target.value })} /></Field>
         <Field label="Type">
@@ -399,45 +396,64 @@ function ProgramsManager() {
         </Field>
         <Field label="Start"><Input type="datetime-local" value={d.start_time} onChange={e => setD({ ...d, start_time: e.target.value })} /></Field>
         <Field label="End"><Input type="datetime-local" value={d.end_time} onChange={e => setD({ ...d, end_time: e.target.value })} /></Field>
-        <Field label="Video URL"><Input value={d.video_url} onChange={e => setD({ ...d, video_url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." /></Field>
+        <Field label="Video URL (YouTube / MP4 / embed) — plays on our site at the scheduled time">
+          <Input value={d.video_url} onChange={e => setD({ ...d, video_url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." />
+        </Field>
         <Field label="Thumbnail URL"><Input value={d.thumbnail} onChange={e => setD({ ...d, thumbnail: e.target.value })} /></Field>
         <Field label="Competition">
-          <select value={d.competitionsSlug} onChange={(e) => setD({ ...d, competitionsSlug: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
+          <select value={d.competition_slug} onChange={(e) => setD({ ...d, competition_slug: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
             <option value="">— None —</option>
             {competitions.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
           </select>
         </Field>
-        <Field label="Pinned Live Stream">
+        <Field label="Pinned Live Stream (for live matches)">
           <select value={d.stream_id} onChange={(e) => setD({ ...d, stream_id: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
             <option value="">— Auto pick —</option>
             {streams.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </Field>
         <div className="sm:col-span-2">
-          <Field label="Short description"><Textarea value={d.description} onChange={e => setD({ ...d, description: e.target.value })} rows={2} /></Field>
+          <Field label="Short description (optional)">
+            <Textarea value={d.description} onChange={e => setD({ ...d, description: e.target.value })} rows={2} />
+          </Field>
         </div>
         <div className="flex items-end gap-2 sm:col-span-2">
-          {editingId && <Button variant="outline" onClick={reset}>Cancel</Button>}
-          <Button onClick={add} className="ml-auto bg-accent text-accent-foreground">
+          {editingId && <Button variant="outline" onClick={reset}>Cancel Edit</Button>}
+          <Button onClick={add} className="ml-auto bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="mr-1 h-4 w-4" />{editingId ? "Save Changes" : "Schedule programme"}
           </Button>
         </div>
       </div>
+  
       <ul className="space-y-2">
-        {programs.map((p) => (
-          <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/40 p-3 text-sm">
-             <div className="font-bold">{p.title}</div>
-             <div className="flex gap-2">
-               <Button size="sm" variant="outline" onClick={() => startEdit(p)}>Edit</Button>
-               <Button size="sm" variant="outline" onClick={() => { if (confirm("Delete?")) del.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
-             </div>
-          </li>
-        ))}
+        {programs.map((p) => {
+          const start = new Date(p.startTime).getTime();
+          const end = new Date(p.endTime).getTime();
+          const now = Date.now();
+          const status = now < start ? "Upcoming" : now < end ? "ON AIR" : "Ended";
+          return (
+            <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/40 p-3 text-sm">
+              <div className="min-w-0 flex-1">
+                 <div className="font-bold">
+                    {p.title}
+                    <span className="ml-2 text-xs uppercase text-accent">{p.type}</span>
+                    <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-extrabold uppercase ${status === "ON AIR" ? "bg-accent-red text-white" : status === "Upcoming" ? "bg-accent/20 text-accent" : "bg-muted text-muted-foreground"}`}>{status}</span>
+                 </div>
+                 <div className="text-xs text-muted-foreground">{new Date(p.startTime).toLocaleString()} → {new Date(p.endTime).toLocaleTimeString()}</div>
+                 {p.videoUrl && <div className="mt-1 truncate text-[11px] text-muted-foreground/80">🎬 {p.videoUrl}</div>}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => startEdit(p)}>Edit</Button>
+                <Button size="sm" variant="outline" onClick={() => { if (confirm(`Delete "${p.title}"?`)) del.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            </li>
+          );
+        })}
+        {programs.length === 0 && <li className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No programmes scheduled yet. Add one above.</li>}
       </ul>
     </Section>
   );
 }
-
 // ============================================================================
 // MATCHES
 // ============================================================================
@@ -467,7 +483,7 @@ function MatchesManager() {
           </select>
         </Field>
         <div className="flex items-end sm:col-span-2">
-          <Button onClick={async () => { if (!d.competition_slug || !d.home || !d.away || !d.kickoff) { window.alert('Database Error: ' + 'Fill all required'); return; } await upsert.mutateAsync({ ...d, kickoff: new Date(d.kickoff).toISOString() }); console.log('Operation successful'); }} className="ml-auto bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Add match</Button>
+          <Button onClick={async () => { if (!d.competition_slug || !d.home || !d.away || !d.kickoff) return toast.error("Fill all required"); await upsert.mutateAsync({ ...d, kickoff: new Date(d.kickoff).toISOString() }); toast.success("Added"); }} className="ml-auto bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Add match</Button>
         </div>
       </div>
       <ul className="space-y-2">
@@ -496,27 +512,7 @@ function CompetitionsManager() {
   const { data: competitions = [] } = useCompetitions();
   const upsert = useUpsert("competitions", ["competitions"]);
   const del = useDelete("competitions", ["competitions"]);
-  
-  const [d, setD] = useState<any>({ 
-    slug: "", name: "", short: "", color: "#1E40C8", season: "", description: "", sort_order: 99 
-  });
-
-  const addCompetition = async () => {
-    if (!d.slug || !d.name) { window.alert('Database Error: ' + 'Slug + Name required'); return; }
-    try {
-      const payload = {
-        slug: d.slug, name: d.name, short: d.short, color: d.color,
-        season: d.season, description: d.description, sort_order: d.sort_order
-      };
-      await upsert.mutateAsync(payload);
-      console.log('Operation successful');
-      setD({ slug: "", name: "", short: "", color: "#1E40C8", season: "", description: "", sort_order: 99 });
-    } catch (e: any) {
-      console.error('Database Error:', e);
-      window.alert('Database Error: ' + (e.message || 'An unexpected error occurred'));
-    }
-  };
-
+  const [d, setD] = useState<any>({ slug: "", name: "", short: "", color: "#1E40C8", season: "", description: "", sort_order: 99 });
   return (
     <Section title="Competitions">
       <div className="mb-6 grid gap-3 rounded-xl border border-dashed border-border bg-background/40 p-4 sm:grid-cols-3">
@@ -526,30 +522,17 @@ function CompetitionsManager() {
         <Field label="Colour"><Input type="color" value={d.color} onChange={e => setD({ ...d, color: e.target.value })} /></Field>
         <Field label="Season"><Input value={d.season} onChange={e => setD({ ...d, season: e.target.value })} /></Field>
         <Field label="Sort order"><Input type="number" value={d.sort_order} onChange={e => setD({ ...d, sort_order: +e.target.value })} /></Field>
-        <div className="sm:col-span-3">
-          <Field label="Description">
-            <Textarea value={d.description} onChange={e => setD({ ...d, description: e.target.value })} />
-          </Field>
-        </div>
-        <div className="sm:col-span-3">
-          <Button onClick={addCompetition} className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Plus className="mr-1 h-4 w-4" /> Add competition
-          </Button>
-        </div>
+        <div className="sm:col-span-3"><Field label="Description"><Textarea value={d.description} onChange={e => setD({ ...d, description: e.target.value })} /></Field></div>
+        <div className="sm:col-span-3"><Button onClick={async () => { if (!d.slug || !d.name) return toast.error("Slug + Name required"); await upsert.mutateAsync(d); toast.success("Added"); }} className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Add competition</Button></div>
       </div>
       <ul className="space-y-2">
         {competitions.map(c => (
           <li key={c.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 p-3 text-sm">
             <div className="flex items-center gap-3">
               <span className="h-6 w-6 rounded-full" style={{ background: c.color }} />
-              <div>
-                <div className="font-bold">{c.name}</div>
-                <div className="text-xs text-muted-foreground">/{c.slug} · {c.season}</div>
-              </div>
+              <div><div className="font-bold">{c.name}</div><div className="text-xs text-muted-foreground">/{c.slug} · {c.season}</div></div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => { if (confirm(`Delete competition "${c.name}"?`)) del.mutate(c.id); }}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <Button size="sm" variant="outline" onClick={() => del.mutate(c.id)}><Trash2 className="h-4 w-4" /></Button>
           </li>
         ))}
       </ul>
@@ -580,7 +563,7 @@ function VideosManager() {
           </select>
         </Field>
         <Field label="Sort order"><Input type="number" value={d.sort_order} onChange={e => setD({ ...d, sort_order: +e.target.value })} /></Field>
-        <div className="sm:col-span-2"><Button onClick={async () => { if (!d.title || !d.youtube_id) { window.alert('Database Error: ' + 'Title + YT id required'); return; } await upsert.mutateAsync({ ...d, competition_slug: d.competition_slug || null }); console.log('Operation successful'); }} className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Add video</Button></div>
+        <div className="sm:col-span-2"><Button onClick={async () => { if (!d.title || !d.youtube_id) return toast.error("Title + YT id required"); await upsert.mutateAsync({ ...d, competition_slug: d.competition_slug || null }); toast.success("Added"); }} className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Add video</Button></div>
       </div>
       <ul className="space-y-2">
         {videos.map(v => (
@@ -610,7 +593,7 @@ function NewsManager() {
         <Field label="Hero image URL"><Input value={d.hero} onChange={e => setD({ ...d, hero: e.target.value })} /></Field>
         <Field label="Excerpt"><Input value={d.excerpt} onChange={e => setD({ ...d, excerpt: e.target.value })} /></Field>
         <div className="sm:col-span-2"><Field label="Body"><Textarea rows={5} value={d.body} onChange={e => setD({ ...d, body: e.target.value })} /></Field></div>
-        <div className="sm:col-span-2"><Button onClick={async () => { if (!d.slug || !d.title) { window.alert('Database Error: ' + 'Slug + title required'); return; } await upsert.mutateAsync(d); console.log('Operation successful'); }} className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Publish</Button></div>
+        <div className="sm:col-span-2"><Button onClick={async () => { if (!d.slug || !d.title) return toast.error("Slug + title required"); await upsert.mutateAsync(d); toast.success("Published"); }} className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Publish</Button></div>
       </div>
       <ul className="space-y-2">
         {news.map(n => (
@@ -636,7 +619,7 @@ function TickerManager() {
     <Section title="Ticker Headlines" desc="Breaking news bar at the top of every page.">
       <div className="mb-4 flex gap-2">
         <Input value={text} onChange={e => setText(e.target.value)} placeholder="🔴 Breaking…" />
-        <Button onClick={async () => { if (!text) return; await upsert.mutateAsync({ text, sort_order: (ticker.length + 1) * 10 }); setText(""); console.log('Operation successful'); }} className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="h-4 w-4" /></Button>
+        <Button onClick={async () => { if (!text) return; await upsert.mutateAsync({ text, sort_order: (ticker.length + 1) * 10 }); setText(""); toast.success("Added"); }} className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="h-4 w-4" /></Button>
       </div>
       <ul className="space-y-2">
         {ticker.map(t => (
@@ -669,7 +652,7 @@ function SettingsManager() {
   ];
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      {sections.map(s => <SettingsBlock key={s.key} block={s} value={settings[s.key] ?? {}} onSave={(v) => upsert.mutateAsync({ key: s.key, value: v }).then(() => console.log('Operation successful'))} />)}
+      {sections.map(s => <SettingsBlock key={s.key} block={s} value={settings[s.key] ?? {}} onSave={(v) => upsert.mutateAsync({ key: s.key, value: v }).then(() => toast.success(`${s.label} saved`))} />)}
     </div>
   );
 }
@@ -714,7 +697,7 @@ function BlogManager() {
   const reset = () => { setD(empty); setEditingId(null); };
 
   const save = async () => {
-    if (!d.slug || !d.title) { window.alert('Database Error: ' + 'Slug + title required'); return; }
+    if (!d.slug || !d.title) return toast.error("Slug + title required");
     const row: any = {
       slug: d.slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, ""),
       title: d.title, excerpt: d.excerpt || null, body: d.body || null, hero: d.hero || null,
@@ -722,8 +705,8 @@ function BlogManager() {
       tags: (d.tags || "").split(",").map((t: string) => t.trim()).filter(Boolean),
     };
     if (editingId) row.id = editingId;
-    try { await upsert.mutateAsync(row); console.log('Operation successful'); reset(); }
-    catch (e: any) { console.error('Database Error:', e); window.alert('Database Error: ' + (e.message || 'An unexpected error occurred')); }
+    try { await upsert.mutateAsync(row); toast.success(editingId ? "Updated" : "Published"); reset(); }
+    catch (e: any) { toast.error(e.message); }
   };
 
   return (
