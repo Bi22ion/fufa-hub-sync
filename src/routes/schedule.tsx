@@ -4,7 +4,6 @@ import { usePrograms, useCompetitions } from "@/lib/cms";
 import { useState } from "react";
 import { Bell, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/schedule")({
   head: () => ({ meta: [{ title: "Schedule — FUFA TV" }, { name: "description", content: "Full football programming schedule on FUFA TV." }] }),
@@ -52,7 +51,7 @@ function SchedulePage() {
                 <div className="flex gap-2">
                   {isLive
                     ? <Link to="/live"><Button size="sm" className="bg-accent-red text-white hover:bg-accent-red/90"><Play className="mr-1 h-4 w-4" /> Watch</Button></Link>
-                    : <Button size="sm" variant="outline" onClick={() => toast.success(`Reminder set for ${p.title}`)}><Bell className="mr-1 h-4 w-4" /> Remind me</Button>}
+                    : <Button size="sm" variant="outline" onClick={() => console.log('Operation successful')}><Bell className="mr-1 h-4 w-4" /> Remind me</Button>}
                 </div>
               </li>
             );
