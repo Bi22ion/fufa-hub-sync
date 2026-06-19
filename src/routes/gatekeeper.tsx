@@ -340,29 +340,29 @@ function ProgramsManager() {
   const del = useDelete("programs", ["programs"]);
   const TYPES = ["Live Match", "Highlights", "News", "Press Conference", "Replay"];
   
-  // Added editingId to track which program is being edited
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Initial state uses 'competitionsSlug' to match your database
   const [d, setD] = useState<any>({ 
     title: "", type: "Live Match", start_time: "", end_time: "", thumbnail: "", 
-    competition_slug: "", stream_id: "", video_url: "", description: "" 
+    competitionsSlug: "", stream_id: "", video_url: "", description: "" 
   });
   
   const reset = () => {
     setEditingId(null);
     setD({ title: "", type: "Live Match", start_time: "", end_time: "", thumbnail: "", 
-           competition_slug: "", stream_id: "", video_url: "", description: "" });
+           competitionsSlug: "", stream_id: "", video_url: "", description: "" });
   };
 
-  // Helper to load program data into the form
   const startEdit = (p: any) => {
     setEditingId(p.id);
     setD({
       ...p,
-      // Convert stored ISO dates to local format for the inputs
       start_time: new Date(p.startTime).toISOString().slice(0, 16),
       end_time: new Date(p.endTime).toISOString().slice(0, 16),
       video_url: p.videoUrl || "",
+      // Ensure we map the database field back to the form state
+      competitionsSlug: p.competitionsSlug || "" 
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -370,19 +370,31 @@ function ProgramsManager() {
   const add = async () => {
     if (!d.title || !d.start_time || !d.end_time) return toast.error("Title, start and end required");
     try {
-      await upsert.mutateAsync({
-        ...d,
-        id: editingId, // If editingId exists, this updates the existing record
+      // Build the payload
+      const payload: any = {
+        title: d.title,
+        type: d.type,
         start_time: new Date(d.start_time).toISOString(),
         end_time: new Date(d.end_time).toISOString(),
-        competition_slug: d.competition_slug || null,
+        thumbnail: d.thumbnail,
+        competitionsSlug: d.competitionsSlug || null, // FIX: Use camelCase column name
         stream_id: d.stream_id || null,
         video_url: d.video_url || null,
         description: d.description || null,
-      });
+      };
+
+      // FIX: Only add ID if editing. If null, Supabase generates it via gen_random_uuid()
+      if (editingId) {
+        payload.id = editingId;
+      }
+
+      await upsert.mutateAsync(payload);
       toast.success(editingId ? "Updated successfully" : "Scheduled");
       reset();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { 
+      console.error(e); 
+      toast.error(e.message); 
+    }
   };
   
   return (
@@ -401,7 +413,7 @@ function ProgramsManager() {
         </Field>
         <Field label="Thumbnail URL"><Input value={d.thumbnail} onChange={e => setD({ ...d, thumbnail: e.target.value })} /></Field>
         <Field label="Competition">
-          <select value={d.competition_slug} onChange={(e) => setD({ ...d, competition_slug: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
+          <select value={d.competitionsSlug} onChange={(e) => setD({ ...d, competitionsSlug: e.target.value })} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm">
             <option value="">— None —</option>
             {competitions.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
           </select>
@@ -512,7 +524,44 @@ function CompetitionsManager() {
   const { data: competitions = [] } = useCompetitions();
   const upsert = useUpsert("competitions", ["competitions"]);
   const del = useDelete("competitions", ["competitions"]);
-  const [d, setD] = useState<any>({ slug: "", name: "", short: "", color: "#1E40C8", season: "", description: "", sort_order: 99 });
+  
+  // Initialize state with all required fields for your database schema
+  const [d, setD] = useState<any>({ 
+    slug: "", 
+    name: "", 
+    short: "", 
+    color: "#1E40C8", 
+    season: "", 
+    description: "", 
+    sort_order: 99 
+  });
+
+  const addCompetition = async () => {
+    if (!d.slug || !d.name) return toast.error("Slug + Name required");
+    
+    try {
+      // Explicitly construct the payload to ensure no extra fields interfere
+      const payload = {
+        slug: d.slug,
+        name: d.name,
+        short: d.short,
+        color: d.color,
+        season: d.season,
+        description: d.description,
+        sort_order: d.sort_order
+      };
+
+      await upsert.mutateAsync(payload);
+      toast.success("Competition added/updated successfully");
+      
+      // Reset form to initial state
+      setD({ slug: "", name: "", short: "", color: "#1E40C8", season: "", description: "", sort_order: 99 });
+    } catch (e: any) {
+      console.error("Database Error:", e);
+      toast.error(e.message || "Failed to save competition");
+    }
+  };
+
   return (
     <Section title="Competitions">
       <div className="mb-6 grid gap-3 rounded-xl border border-dashed border-border bg-background/40 p-4 sm:grid-cols-3">
@@ -522,17 +571,31 @@ function CompetitionsManager() {
         <Field label="Colour"><Input type="color" value={d.color} onChange={e => setD({ ...d, color: e.target.value })} /></Field>
         <Field label="Season"><Input value={d.season} onChange={e => setD({ ...d, season: e.target.value })} /></Field>
         <Field label="Sort order"><Input type="number" value={d.sort_order} onChange={e => setD({ ...d, sort_order: +e.target.value })} /></Field>
-        <div className="sm:col-span-3"><Field label="Description"><Textarea value={d.description} onChange={e => setD({ ...d, description: e.target.value })} /></Field></div>
-        <div className="sm:col-span-3"><Button onClick={async () => { if (!d.slug || !d.name) return toast.error("Slug + Name required"); await upsert.mutateAsync(d); toast.success("Added"); }} className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-4 w-4" />Add competition</Button></div>
+        <div className="sm:col-span-3">
+          <Field label="Description">
+            <Textarea value={d.description} onChange={e => setD({ ...d, description: e.target.value })} />
+          </Field>
+        </div>
+        <div className="sm:col-span-3">
+          <Button onClick={addCompetition} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Plus className="mr-1 h-4 w-4" /> Add competition
+          </Button>
+        </div>
       </div>
+      
       <ul className="space-y-2">
         {competitions.map(c => (
           <li key={c.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 p-3 text-sm">
             <div className="flex items-center gap-3">
               <span className="h-6 w-6 rounded-full" style={{ background: c.color }} />
-              <div><div className="font-bold">{c.name}</div><div className="text-xs text-muted-foreground">/{c.slug} · {c.season}</div></div>
+              <div>
+                <div className="font-bold">{c.name}</div>
+                <div className="text-xs text-muted-foreground">/{c.slug} · {c.season}</div>
+              </div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => del.mutate(c.id)}><Trash2 className="h-4 w-4" /></Button>
+            <Button size="sm" variant="outline" onClick={() => { if (confirm(`Delete competition "${c.name}"?`)) del.mutate(c.id); }}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </li>
         ))}
       </ul>
