@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSession } from "@/lib/useAuth";
-import { toast } from "sonner";
 import { Mail, Lock, User as UserIcon } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
@@ -46,35 +45,38 @@ function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { 
-            emailRedirectTo: window.location.origin + "/account", 
-            data: { full_name: name } 
+          options: {
+            emailRedirectTo: window.location.origin + "/account",
+            data: { full_name: name }
           },
         });
         if (error) throw error;
-        toast.success("Account created successfully! Welcome to FUFA TV.");
+        console.log('Operation successful');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Welcome back!");
+        console.log('Operation successful');
       }
     } catch (err: any) {
-      toast.error(err.message ?? "Authentication failed");
-    } finally { 
-      setBusy(false); 
+      console.error('Database Error:', err);
+      window.alert('Database Error: ' + (err.message || 'An unexpected error occurred'));
+    } finally {
+      setBusy(false);
     }
   };
 
-  // Replace your existing handleGoogleClick in auth.tsx with this:
-const handleGoogleClick = async () => {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin + dest,
-    },
-  });
-  if (error) toast.error(error.message);
-};
+  const handleGoogleClick = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + dest,
+      },
+    });
+    if (error) {
+      console.error('Database Error:', error);
+      window.alert('Database Error: ' + (error.message || 'An unexpected error occurred'));
+    }
+  };
 
   return (
     <Layout showTicker={false}>
@@ -110,17 +112,17 @@ const handleGoogleClick = async () => {
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="pl-9" required />
               </div>
             )}
-            
+
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="pl-9" required />
             </div>
-            
+
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" minLength={6} className="pl-9" required />
             </div>
-            
+
             <Button type="submit" disabled={busy} className="w-full bg-accent font-bold text-accent-foreground hover:bg-accent/90">
               {busy ? "Please wait…" : mode === "signin" ? "Sign In" : "Create Account"}
             </Button>
